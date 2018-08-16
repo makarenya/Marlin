@@ -267,6 +267,8 @@
   #endif
 #endif
 
+#define FAN1_PIN           65
+
 //
 // Misc. Functions
 //
@@ -300,9 +302,9 @@
 //
 #if ENABLED(SPINDLE_LASER_ENABLE) && !PIN_EXISTS(SPINDLE_LASER_ENABLE)
   #if !defined(NUM_SERVOS) || NUM_SERVOS == 0 // try to use servo connector first
-    #define SPINDLE_LASER_ENABLE_PIN  4   // Pin should have a pullup/pulldown!
-    #define SPINDLE_LASER_PWM_PIN     6   // MUST BE HARDWARE PWM
-    #define SPINDLE_DIR_PIN           5
+    #define SPINDLE_LASER_ENABLE_PIN  40   // Pin should have a pullup/pulldown!
+    #define SPINDLE_LASER_PWM_PIN     5   // MUST BE HARDWARE PWM
+    #define SPINDLE_DIR_PIN           42
   #elif !(ENABLED(ULTRA_LCD) && ENABLED(NEWPANEL) \
       && (ENABLED(PANEL_ONE) || ENABLED(VIKI2) || ENABLED(miniVIKI) || ENABLED(MINIPANEL) || ENABLED(REPRAPWORLD_KEYPAD)))  // try to use AUX 2
     #define SPINDLE_LASER_ENABLE_PIN 40   // Pin should have a pullup/pulldown!
