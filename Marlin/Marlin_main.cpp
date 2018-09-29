@@ -4111,15 +4111,6 @@ inline void gcode_G4() {
   }
 #endif
 
-#ifdef Z_AFTER_PROBING
-  void move_z_after_probing() {
-    if (current_position[Z_AXIS] != Z_AFTER_PROBING) {
-      do_blocking_move_to_z(Z_AFTER_PROBING);
-      current_position[Z_AXIS] = Z_AFTER_PROBING;
-    }
-  }
-#endif
-
 #if ENABLED(Z_SAFE_HOMING)
 
   inline void home_z_safely() {
@@ -7215,13 +7206,8 @@ inline void gcode_M17() {
         card.pauseSDPrint();
         ++did_pause_print; // Indicate SD pause also
       }
-      KEEPALIVE_STATE(IN_HANDLER);
-    }
-
-    #if ENABLED(ULTIPANEL)
-      if (show_lcd) // Show "wait for load" message
-        lcd_advanced_pause_show_message(ADVANCED_PAUSE_MESSAGE_LOAD, mode);
     #endif
+    print_job_timer.pause();
 
     // Save current position
     COPY(resume_position, current_position);
@@ -7264,71 +7250,11 @@ inline void gcode_M17() {
       filament_change_beep(max_beep_count, true);
     #endif
 
-    return true;
-  }
+    // Start the heater idle timers
+    const millis_t nozzle_timeout = (millis_t)(PAUSE_PARK_NOZZLE_TIMEOUT) * 1000UL;
 
-  /**
-   * Pause procedure
-   *
-   * - Abort if already paused
-   * - Send host action for pause, if configured
-   * - Abort if TARGET temperature is too low
-   * - Display "wait for start of filament change" (if a length was specified)
-   * - Initial retract, if current temperature is hot enough
-   * - Park the nozzle at the given position
-   * - Call unload_filament (if a length was specified)
-   *
-   * Returns 'true' if pause was completed, 'false' for abort
-   */
-  static bool pause_print(const float &retract, const point_t &park_point, const float &unload_length=0, const bool show_lcd=false) {
-    if (did_pause_print) return false; // already paused
-
-    #ifdef ACTION_ON_PAUSE
-      SERIAL_ECHOLNPGM("//action:" ACTION_ON_PAUSE);
-    #endif
-
-    if (!DEBUGGING(DRYRUN) && unload_length && thermalManager.targetTooColdToExtrude(active_extruder)) {
-      SERIAL_ERROR_START();
-      SERIAL_ERRORLNPGM(MSG_HOTEND_TOO_COLD);
-
-      #if ENABLED(ULTIPANEL)
-        if (show_lcd) // Show status screen
-          lcd_advanced_pause_show_message(ADVANCED_PAUSE_MESSAGE_STATUS);
-        LCD_MESSAGEPGM(MSG_M600_TOO_COLD);
-      #endif
-
-      return false; // unable to reach safe temperature
-    }
-
-    // Indicate that the printer is paused
-    ++did_pause_print;
-
-    // Pause the print job and timer
-    #if ENABLED(SDSUPPORT)
-      if (card.sdprinting) {
-        card.pauseSDPrint();
-        ++did_pause_print; // Indicate SD pause also
-      }
-    #endif
-    print_job_timer.pause();
-
-    // Save current position
-    COPY(resume_position, current_position);
-
-    // Wait for synchronize steppers
-    planner.synchronize();
-
-    // Initial retract before move to filament change position
-    if (retract && thermalManager.hotEnoughToExtrude(active_extruder))
-      do_pause_e_move(retract, PAUSE_PARK_RETRACT_FEEDRATE);
-
-    // Park the nozzle by moving up by z_lift and then moving to (x_pos, y_pos)
-    if (!axis_unhomed_error())
-      Nozzle::park(2, park_point);
-
-    // Unload the filament
-    if (unload_length)
-      unload_filament(unload_length, show_lcd);
+    HOTEND_LOOP()
+      thermalManager.start_heater_idle_timer(e, nozzle_timeout);
 
     // Wait for filament insert by user and press button
     KEEPALIVE_STATE(PAUSED_FOR_USER);
@@ -11590,106 +11516,6 @@ inline void gcode_M502() {
           TMC_SAY_CURRENT(E4);
         #endif
       #endif
-    #endif
-  }
-
-  /**
-   * M913: Set HYBRID_THRESHOLD speed.
-   */
-  #if ENABLED(HYBRID_THRESHOLD)
-    inline void gcode_M913() {
-      #define TMC_SAY_PWMTHRS(A,Q) tmc_get_pwmthrs(stepper##Q, TMC_##Q, planner.axis_steps_per_mm[_AXIS(A)])
-      #define TMC_SET_PWMTHRS(A,Q) tmc_set_pwmthrs(stepper##Q, value, planner.axis_steps_per_mm[_AXIS(A)])
-      #define TMC_SAY_PWMTHRS_E(E) do{ const uint8_t extruder = E; tmc_get_pwmthrs(stepperE##E, TMC_E##E, planner.axis_steps_per_mm[E_AXIS_N]); }while(0)
-      #define TMC_SET_PWMTHRS_E(E) do{ const uint8_t extruder = E; tmc_set_pwmthrs(stepperE##E, value, planner.axis_steps_per_mm[E_AXIS_N]); }while(0)
-
-      bool report = true;
-      const uint8_t index = parser.byteval('I');
-      LOOP_XYZE(i) if (int32_t value = parser.longval(axis_codes[i])) {
-        report = false;
-        switch (i) {
-          case X_AXIS:
-            #if AXIS_HAS_STEALTHCHOP(X)
-              if (index < 2) TMC_SET_PWMTHRS(X,X);
-            #endif
-            #if AXIS_HAS_STEALTHCHOP(X2)
-              if (!(index & 1)) TMC_SET_PWMTHRS(X,X2);
-            #endif
-            break;
-          case Y_AXIS:
-            #if AXIS_HAS_STEALTHCHOP(Y)
-              if (index < 2) TMC_SET_PWMTHRS(Y,Y);
-            #endif
-            #if AXIS_HAS_STEALTHCHOP(Y2)
-              if (!(index & 1)) TMC_SET_PWMTHRS(Y,Y2);
-            #endif
-            break;
-          case Z_AXIS:
-            #if AXIS_HAS_STEALTHCHOP(Z)
-              if (index < 2) TMC_SET_PWMTHRS(Z,Z);
-            #endif
-            #if AXIS_HAS_STEALTHCHOP(Z2)
-              if (!(index & 1)) TMC_SET_PWMTHRS(Z,Z2);
-            #endif
-            break;
-          case E_AXIS: {
-            if (get_target_extruder_from_command(913)) return;
-            switch (target_extruder) {
-              #if AXIS_HAS_STEALTHCHOP(E0)
-                case 0: TMC_SET_PWMTHRS_E(0); break;
-              #endif
-              #if E_STEPPERS > 1 && AXIS_HAS_STEALTHCHOP(E1)
-                case 1: TMC_SET_PWMTHRS_E(1); break;
-              #endif
-              #if E_STEPPERS > 2 && AXIS_HAS_STEALTHCHOP(E2)
-                case 2: TMC_SET_PWMTHRS_E(2); break;
-              #endif
-              #if E_STEPPERS > 3 && AXIS_HAS_STEALTHCHOP(E3)
-                case 3: TMC_SET_PWMTHRS_E(3); break;
-              #endif
-              #if E_STEPPERS > 4 && AXIS_HAS_STEALTHCHOP(E4)
-                case 4: TMC_SET_PWMTHRS_E(4); break;
-              #endif
-            }
-          } break;
-        }
-      }
-
-      if (report) {
-        #if AXIS_HAS_STEALTHCHOP(X)
-          TMC_SAY_PWMTHRS(X,X);
-        #endif
-        #if AXIS_HAS_STEALTHCHOP(X2)
-          TMC_SAY_PWMTHRS(X,X2);
-        #endif
-        #if AXIS_HAS_STEALTHCHOP(Y)
-          TMC_SAY_PWMTHRS(Y,Y);
-        #endif
-        #if AXIS_HAS_STEALTHCHOP(Y2)
-          TMC_SAY_PWMTHRS(Y,Y2);
-        #endif
-        #if AXIS_HAS_STEALTHCHOP(Z)
-          TMC_SAY_PWMTHRS(Z,Z);
-        #endif
-        #if AXIS_HAS_STEALTHCHOP(Z2)
-          TMC_SAY_PWMTHRS(Z,Z2);
-        #endif
-        #if AXIS_HAS_STEALTHCHOP(E0)
-          TMC_SAY_PWMTHRS_E(0);
-        #endif
-        #if E_STEPPERS > 1 && AXIS_HAS_STEALTHCHOP(E1)
-          TMC_SAY_PWMTHRS_E(1);
-        #endif
-        #if E_STEPPERS > 2 && AXIS_HAS_STEALTHCHOP(E2)
-          TMC_SAY_PWMTHRS_E(2);
-        #endif
-        #if E_STEPPERS > 3 && AXIS_HAS_STEALTHCHOP(E3)
-          TMC_SAY_PWMTHRS_E(3);
-        #endif
-        #if E_STEPPERS > 4 && AXIS_HAS_STEALTHCHOP(E4)
-          TMC_SAY_PWMTHRS_E(4);
-        #endif
-      }
     }
   }
 
@@ -12907,11 +12733,6 @@ void process_parsed_command() {
         case 95: gcode_G95(); break;                                // G95: Set torque mode
         case 96: gcode_G96(); break;                                // G96: Mark encoder reference point
       #endif
-
-      case 90: relative_mode = false; break;                      // G90: Absolute coordinates
-      case 91: relative_mode = true; break;                       // G91: Relative coordinates
-
-      case 92: gcode_G92(); break;                                // G92: Set Position
 
       #if ENABLED(DEBUG_GCODE_PARSER)
         case 800: parser.debug(); break;                          // G800: GCode Parser Test for G
@@ -14845,16 +14666,6 @@ void enable_all_steppers() {
   enable_E1();
   enable_E2();
   enable_E3();
-}
-
-void disable_e_stepper(const uint8_t e) {
-  switch (e) {
-    case 0: disable_E0(); break;
-    case 1: disable_E1(); break;
-    case 2: disable_E2(); break;
-    case 3: disable_E3(); break;
-    case 4: disable_E4(); break;
-  }
 }
 
 void disable_e_stepper(const uint8_t e) {
