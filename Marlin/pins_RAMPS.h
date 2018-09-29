@@ -55,11 +55,7 @@
 //
 // Servos
 //
-#ifdef IS_RAMPS_13
-  #define SERVO0_PIN        7   // RAMPS_13 // Will conflict with BTN_EN2 on LCD_I2C_VIKI
-#else
-  #define SERVO0_PIN       11
-#endif
+#define SERVO0_PIN         11
 #define SERVO1_PIN          6
 #define SERVO2_PIN          5
 #ifndef SERVO3_PIN
@@ -289,28 +285,16 @@
 #endif
 
 #if ENABLED(CASE_LIGHT_ENABLE) && !defined(CASE_LIGHT_PIN) && !defined(SPINDLE_LASER_ENABLE_PIN)
-  #if NUM_SERVOS <= 1 // try to use servo connector first
-    #define CASE_LIGHT_PIN    6   // MUST BE HARDWARE PWM
-  #elif !(ENABLED(ULTRA_LCD) && ENABLED(NEWPANEL) \
-      && (ENABLED(PANEL_ONE) || ENABLED(VIKI2) || ENABLED(miniVIKI) || ENABLED(MINIPANEL) || ENABLED(REPRAPWORLD_KEYPAD)))  // try to use AUX 2
-    #define CASE_LIGHT_PIN   44   // MUST BE HARDWARE PWM
-  #endif
+  #define CASE_LIGHT_PIN    6   // MUST BE HARDWARE PWM
 #endif
 
 //
 // M3/M4/M5 - Spindle/Laser Control
 //
 #if ENABLED(SPINDLE_LASER_ENABLE) && !PIN_EXISTS(SPINDLE_LASER_ENABLE)
-  #if !defined(NUM_SERVOS) || NUM_SERVOS == 0 // try to use servo connector first
-    #define SPINDLE_LASER_ENABLE_PIN  40   // Pin should have a pullup/pulldown!
-    #define SPINDLE_LASER_PWM_PIN     5   // MUST BE HARDWARE PWM
-    #define SPINDLE_DIR_PIN           42
-  #elif !(ENABLED(ULTRA_LCD) && ENABLED(NEWPANEL) \
-      && (ENABLED(PANEL_ONE) || ENABLED(VIKI2) || ENABLED(miniVIKI) || ENABLED(MINIPANEL) || ENABLED(REPRAPWORLD_KEYPAD)))  // try to use AUX 2
-    #define SPINDLE_LASER_ENABLE_PIN 40   // Pin should have a pullup/pulldown!
-    #define SPINDLE_LASER_PWM_PIN    44   // MUST BE HARDWARE PWM
-    #define SPINDLE_DIR_PIN          65
-  #endif
+  #define SPINDLE_LASER_ENABLE_PIN  40   // Pin should have a pullup/pulldown!
+  #define SPINDLE_LASER_PWM_PIN     6   // MUST BE HARDWARE PWM
+  #define SPINDLE_DIR_PIN           42
 #endif
 
 //

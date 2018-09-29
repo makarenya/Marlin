@@ -83,7 +83,7 @@ LIQUID_TWI2        ?= 0
 WIRE               ?= 0
 
 # this defines if U8GLIB is needed (may require RELOC_WORKAROUND)
-U8GLIB             ?= 0
+U8GLIB             ?= 1
 
 # this defines whether to add a workaround for the avr-gcc relocation bug
 #	  https://www.stix.id.au/wiki/AVR_relocation_truncations_workaround
@@ -429,8 +429,8 @@ ifeq ($(NEOPIXEL), 1)
 VPATH += $(ARDUINO_INSTALL_DIR)/libraries/Adafruit_NeoPixel
 endif
 ifeq ($(U8GLIB), 1)
-VPATH += $(ARDUINO_INSTALL_DIR)/libraries/U8glib
-VPATH += $(ARDUINO_INSTALL_DIR)/libraries/U8glib/utility
+VPATH += $(ARDUINO_INSTALL_DIR)/libraries/U8glib/src
+VPATH += $(ARDUINO_INSTALL_DIR)/libraries/U8glib/src/clib
 endif
 
 ifeq ($(HARDWARE_VARIANT), arduino)
